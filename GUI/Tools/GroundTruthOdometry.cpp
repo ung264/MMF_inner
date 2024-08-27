@@ -30,7 +30,8 @@ void GroundTruthOdometry::loadTrajectory(const std::string& filename) {
     unsigned long long int utime;
     float x, y, z, qx, qy, qz, qw;
     std::getline(file, line);
-    int n = sscanf(line.c_str(), "%llu,%f,%f,%f,%f,%f,%f,%f", &utime, &x, &y, &z, &qx, &qy, &qz, &qw);
+    //int n = sscanf(line.c_str(), "%llu,%f,%f,%f,%f,%f,%f,%f", &utime, &x, &y, &z, &qx, &qy, &qz, &qw);
+    int n = sscanf(line.c_str(), "%llu %f %f %f %f %f %f %f", &utime, &x, &y, &z, &qx, &qy, &qz, &qw);
 
     if (file.eof()) break;
 

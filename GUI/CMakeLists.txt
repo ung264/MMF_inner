@@ -21,6 +21,13 @@ option(ROSBAG "rosbag reader" ${HASROS1})
 
 option(ROSNODE "read images live as ROS node" ${HASROS})
 
+# Log the values of options and variables
+message( "ROSBAG: ${ROSBAG}")
+message("ROSNODE: ${ROSNODE}")
+message( "HASROS1: ${HASROS1}")
+message( "HASROS: ${HASROS}")
+
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}")
 find_package(ZLIB REQUIRED)
 find_package(OpenNI2 REQUIRED)
@@ -93,6 +100,8 @@ target_link_libraries(MultiMotionFusion
                       gSLICr_lib # this should be included by target 'multimotionfusion'
                       ${JPEG_LIBRARIES}
                       super_point_inference
+                      ffi
+                      ncursesw
 )
 
 add_library(MultiMotionFusionTools SHARED ${tools_srcs})
