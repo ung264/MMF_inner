@@ -416,9 +416,17 @@ bool MultiMotionFusion::processFrame(const FrameData& frame, const Eigen::Matrix
         textures[GPUTexture::MASK]->texture->Upload(segmentationResult.fullSegmentation.data, GL_LUMINANCE_INTEGER_EXT, GL_UNSIGNED_BYTE);
 
         if (exportSegmentation) {
+
+        // Define the segmentation directory path
+        std::string segmentationDir = exportDir + "Segmentation/";
+
+        // Check if the directory exists, if not, create it
+        if (!std::filesystem::exists(segmentationDir)) {
+            std::filesystem::create_directories(segmentationDir);  // Create the directory if it doesn't exist
+        }
           cv::Mat output;
           cv::threshold(segmentationResult.fullSegmentation, output, 254, 255, cv::THRESH_TOZERO_INV);
-          cv::imwrite(exportDir + "Segmentation" + std::to_string(tick) + ".png", output);
+          cv::imwrite(segmentationDir+ std::to_string(tick) + ".png", output);
           // cv::imwrite(exportDir + "RGB" + std::to_string(tick) + ".png", rgb);
         }
 
@@ -1029,9 +1037,21 @@ void MultiMotionFusion::exportPoses() {
       std::ofstream fs;
       fs.open(filename.c_str());
 
+      // Set precision for the output stream to ensure full accuracy
+      fs << std::fixed << std::setprecision(9);
+
       auto poseLog = m->getPoseLog();
       for (auto& p : poseLog) {
-        fs << p.ts;
+        // Assuming p.ts is a 19-digit int_64 timestamp
+        int64_t seconds = p.ts / 1000000000;         // Extract the first 10 digits (seconds)
+        int64_t nanoseconds = p.ts % 1000000000;     // Extract the last 9 digits (nanoseconds)
+        
+        // Combine into a float with seconds.nanoseconds format
+        double timestamp = static_cast<double>(seconds) + static_cast<double>(nanoseconds) / 1e9;
+        //std::cout<<"timestamp is"<<timestamp<<std::endl;
+
+        fs <<timestamp;
+        //fs << p.ts;
         for (int i = 0; i < p.p.size(); ++i) fs << " " << p.p(i);
         fs << "\n";
       }

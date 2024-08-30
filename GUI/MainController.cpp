@@ -420,9 +420,9 @@ MainController::MainController(int argc, char* argv[])
       // determine path from basedir and lofile
       if (std::filesystem::exists(logFile)) {
         // TODO: this is bound to fail if logFile is not in the baseDir or the path is not relative
-        exportDir = baseDir + logFile + "-export/";
+        exportDir = baseDir + exportDir + "-" +logFile +  + "/";//"-export/";
       } else {
-        exportDir = baseDir + exportDir + "-export/";
+        exportDir = baseDir + exportDir + "/";// + "-export/";
       }
     }
     else {

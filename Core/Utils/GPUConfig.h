@@ -108,6 +108,16 @@ class GPUConfig {
     rgbResMap["Quadro K620M"] = std::pair<int, int>(448, 48);
     so3StepMap["Quadro K620M"] = std::pair<int, int>(32, 48);
 
+    icpStepMap["NVIDIA GeForce RTX 2080 Ti"] = std::pair<int, int>(512, 32);
+    rgbStepMap["NVIDIA GeForce RTX 2080 Ti"] = std::pair<int, int>(160, 64);
+    rgbResMap["NVIDIA GeForce RTX 2080 Ti"] = std::pair<int, int>(128, 512);
+    so3StepMap["NVIDIA GeForce RTX 2080 Ti"] = std::pair<int, int>(240, 48);
+
+    // icpStepMap["NVIDIA GeForce RTX 2080 Ti"] = std::pair<int, int>(32, 48);
+    // rgbStepMap["NVIDIA GeForce RTX 2080 Ti"] = std::pair<int, int>(128, 16);
+    // rgbResMap["NVIDIA GeForce RTX 2080 Ti"] = std::pair<int, int>(448, 48);
+    // so3StepMap["NVIDIA GeForce RTX 2080 Ti"] = std::pair<int, int>(32, 48);
+
     if (icpStepMap.find(dev) == icpStepMap.end()) {
       std::stringstream strs;
       strs << "Your GPU \"" << dev << "\" isn't in the ICP Step performance database, please add it";
