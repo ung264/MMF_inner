@@ -204,6 +204,124 @@ void MultiMotionFusion::computeFeedbackBuffers() {
   TOCK("feedbackBuffers");
 }
 
+void MultiMotionFusion::saveFrameImages(const std::string& basefolder, const cv::Mat& depth, const cv::Mat& rgb) {
+    // Static counter for naming images
+    static int imageCounter = 0;
+
+    // Create directories if they do not exist
+    std::string depthFolder = basefolder + "/depth/";
+    std::string rgbFolder = basefolder + "/rgb/";
+    std::string maskFolder = basefolder + "/masks/";
+
+    std::filesystem::create_directories(depthFolder);
+    std::filesystem::create_directories(rgbFolder);
+    std::filesystem::create_directories(maskFolder);
+
+    // Create unique filenames for each image using the counter
+    std::ostringstream depthFilename;
+    std::ostringstream rgbFilename;
+    std::ostringstream maskFilename;
+
+    depthFilename << depthFolder << std::setw(4) << std::setfill('0') << imageCounter << ".png";
+    rgbFilename << rgbFolder << std::setw(4) << std::setfill('0') << imageCounter << ".png";
+    maskFilename << maskFolder << std::setw(4) << std::setfill('0') << imageCounter << ".png";
+
+    // Generate a mask image with the same size as the RGB and depth images
+    cv::Mat mask = cv::Mat::ones(rgb.size(), CV_8UC1); // Single-channel 8-bit image with all values set to 1
+
+    // Convert the RGB image from BGR to RGB
+    cv::Mat rgbCorrected;
+    cv::cvtColor(rgb, rgbCorrected, cv::COLOR_BGR2RGB);
+
+    // Save depth and rgb images without modifying the depth data
+    cv::imwrite(depthFilename.str(), depth);  // Save the raw depth image
+    cv::imwrite(rgbFilename.str(), rgbCorrected);      // Save the RGB image
+    cv::imwrite(maskFilename.str(), mask);         // Save the mask image
+
+    std::cout << "Saved images: " << depthFilename.str() << ", " << rgbFilename.str() << ", " << maskFilename.str() << std::endl;
+
+    // Increment the counter for the next frame
+    imageCounter++;
+}
+
+// Function to convert int64_t timestamp to double
+double MultiMotionFusion::convertTimestamp(int64_t timestamp) {
+// Function to convert int64_t timestamp to double with specific formatting
+    // Extract the integer part (first 10 digits)
+    int64_t integerPart = timestamp / 1e9;
+
+    // Extract the fractional part (remaining digits after the first 10 digits)
+    int64_t fractionalPart = timestamp % static_cast<int64_t>(1e9);  // Get the last 9 digits
+
+    // Convert fractional part into a decimal by dividing it by 1e9
+    double fractionalDecimal = static_cast<double>(fractionalPart) / 1e9;
+
+    // Combine the integer part and fractional part
+    return static_cast<double>(integerPart) + fractionalDecimal;
+}
+
+void MultiMotionFusion::saveFrameImagesTimestamp(const std::string& basefolder, const cv::Mat& depth, const cv::Mat& rgb, std::string timestamp) {
+    // Create directories if they do not exist
+    std::string depthFolder = basefolder + "/depth/";
+    std::string rgbFolder = basefolder + "/rgb/";
+    std::string maskFolder = basefolder + "/masks/";
+
+    std::filesystem::create_directories(depthFolder);
+    std::filesystem::create_directories(rgbFolder);
+    std::filesystem::create_directories(maskFolder);
+
+    // Create filenames using the timestamp instead of the counter
+    std::ostringstream depthFilename;
+    std::ostringstream rgbFilename;
+    std::ostringstream maskFilename;
+
+    // Use the timestamp as the filename with 6 decimal places
+    depthFilename << depthFolder << timestamp << ".png";
+    rgbFilename << rgbFolder << timestamp << ".png";
+    maskFilename << maskFolder << timestamp << ".png";
+
+    // Generate a mask image with the same size as the RGB and depth images
+    cv::Mat mask = cv::Mat::ones(rgb.size(), CV_8UC1);  // Single-channel 8-bit image with all values set to 1
+
+    // Convert the RGB image from BGR to RGB
+    cv::Mat rgbCorrected;
+    cv::cvtColor(rgb, rgbCorrected, cv::COLOR_BGR2RGB);
+
+    // Save depth, rgb, and mask images
+    cv::imwrite(depthFilename.str(), depth);      // Save the depth image
+    cv::imwrite(rgbFilename.str(), rgbCorrected);  // Save the RGB image
+    cv::imwrite(maskFilename.str(), mask);        // Save the mask image
+
+    std::cout << "Saved images: " << depthFilename.str() << ", " << rgbFilename.str() << ", " << maskFilename.str() << std::endl;
+}
+
+double MultiMotionFusion::int64ToFloat(int64_t num) {
+    // Extract the integer part (first 10 digits)
+    int64_t integerPart = num / 1000000000;
+
+    // Extract the decimal part (last 9 digits)
+    int64_t decimalPart = num % 1000000000;
+
+    // Combine them: integer part + (decimal part / 10^9)
+    double result = static_cast<double>(integerPart) + static_cast<double>(decimalPart) *1e-9;
+
+    return result;
+}
+
+std::string MultiMotionFusion::int64ToStringWithDot(int64_t num) {
+    // Convert the int64_t to a string
+    std::ostringstream oss;
+    
+    // Ensure the number has 19 digits, pad with leading zeros if necessary
+    oss << std::setw(19) << std::setfill('0') << num;
+    std::string numStr = oss.str();
+
+    // Insert a dot between the 10th and 11th digits
+    numStr.insert(10, ".");
+
+    return numStr;
+}
+
 bool MultiMotionFusion::processFrame(const FrameData& frame, const Eigen::Matrix4f* inPose, const float weightMultiplier,
                             GroundTruthOdometryInterface* const gt_pose, const bool bootstrap) {
   if (frame.depth.empty() || frame.rgb.empty() || frame.timestamp < 0) {
@@ -214,6 +332,63 @@ bool MultiMotionFusion::processFrame(const FrameData& frame, const Eigen::Matrix
   assert(frame.depth.type() == CV_32FC1);
   assert(frame.rgb.type() == CV_8UC3);
   assert(frame.timestamp >= 0);
+
+    // Save the original depth image (CV_32F) to a YML file
+    cv::FileStorage fileStorage("depth_data_org.yml", cv::FileStorage::WRITE);
+    if (!fileStorage.isOpened()) {
+        std::cerr << "Failed to open file for writing depth data" << std::endl;
+        return false;
+    }
+    
+    //fileStorage << "OriginalDepth" << frame.depth;
+
+    // Step 1: Replace NaN values in the depth data with 0
+    cv::Mat depthImage_noNaN = frame.depth.clone();  // Create a copy to preserve original data
+    cv::patchNaNs(depthImage_noNaN, 0.0f);           // Replace NaNs with 0
+
+    // Step 2: Scale depth data to millimeters
+    cv::Mat depthImage_mm;
+    depthImage_mm = depthImage_noNaN * 1000.0;
+
+    // Step 3: Clip values to be within the range of uint16
+    cv::Mat depthImage_mm_clipped;
+    cv::threshold(depthImage_mm, depthImage_mm_clipped, 65535, 65535, cv::THRESH_TRUNC);
+    cv::threshold(depthImage_mm_clipped, depthImage_mm_clipped, 0, 0, cv::THRESH_TOZERO);
+
+    // Step 3: Convert to uint16
+    cv::Mat depthImage_uint16;
+    depthImage_mm_clipped.convertTo(depthImage_uint16, CV_16U);
+
+    cv::FileStorage fileStorage_c("depth_data_convert.yml", cv::FileStorage::WRITE);
+    if (!fileStorage_c.isOpened()) {
+        std::cerr << "Failed to open file for writing depth data" << std::endl;
+        return false;
+    }
+    
+    //fileStorage_c << "ConvertedDepth" << depthImage_uint16;
+
+    // std::string depthImagePath = "/4tb_ssd/Yanming/Dataset/YCBInEOAT/spindle_foot_new/depth/0000.png";
+    // // Read the depth image without changing its original format
+    // cv::Mat depthImage = cv::imread(depthImagePath, cv::IMREAD_UNCHANGED);
+
+    // cv::FileStorage fileStorage_tmp("depth_data_tmp.yml", cv::FileStorage::WRITE);
+    // if (!fileStorage_tmp.isOpened()) {
+    //     std::cerr << "Failed to open file for writing depth data" << std::endl;
+    //     return
+    //     false;
+    // }
+    // fileStorage_tmp <<"depth_spindle"<<depthImage;
+
+  std::string basefolder = "/4tb_ssd/Yanming/Dataset/YCBInEOAT/nx_segm4_jaffa_down_timestamp";
+  //saveFrameImages(basefolder, depthImage_uint16, frame.rgb);
+
+  // Convert the timestamp to double
+  std::string convertedTimestamp = int64ToStringWithDot(frame.timestamp);
+
+  // Print the result with 6 decimal places
+  std::cout << "Converted timestamp " << frame.timestamp <<" to "<< convertedTimestamp << std::endl;
+
+  saveFrameImagesTimestamp(basefolder, depthImage_uint16, frame.rgb, convertedTimestamp);
 
   TICK("Run");
 

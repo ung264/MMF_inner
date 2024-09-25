@@ -78,6 +78,7 @@ class MultiMotionFusion {
   bool processFrame(const FrameData& frame, const Eigen::Matrix4f* inPose = 0, const float weightMultiplier = 1.f,
                     GroundTruthOdometryInterface* const gt_pose = nullptr,
                     const bool bootstrap = false);
+  void saveFrameImages(const std::string& basefolder, const cv::Mat& depth, const cv::Mat& rgb);
 
   /**
        * Predicts the current view of the scene, updates the [vertex/normal/image]Tex() members
@@ -342,6 +343,11 @@ class MultiMotionFusion {
   bool requiresFillIn(ModelPointer model, float ratio = 0.75f);
 
   void processFerns();
+
+  void saveFrameImagesTimestamp(const std::string& basefolder, const cv::Mat& depth, const cv::Mat& rgb, std::string timestamp);
+  double convertTimestamp(int64_t timestamp);
+  double int64ToFloat(int64_t num);
+  std::string int64ToStringWithDot(int64_t num);
 
  private:
   ModelList models;  // also contains static environment (first model)
